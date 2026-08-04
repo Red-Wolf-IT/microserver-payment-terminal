@@ -2,9 +2,9 @@ package model
 
 import (
 	"crypto/rand"
+	"fmt"
 	"sync"
 	"time"
-	"fmt"
 
 	"github.com/oklog/ulid/v2"
 )
@@ -12,14 +12,14 @@ import (
 type PaymentStatus string
 
 const (
-	PaymentStatusWaiting = "WAITING"
-	PaymentStatusSuccess = "SUCCESS"
-	PaymentStatusTimeout = "TIMEOUT"
+	PaymentStatusWaiting PaymentStatus = "WAITING"
+	PaymentStatusSuccess PaymentStatus = "SUCCESS"
+	PaymentStatusTimeout PaymentStatus = "TIMEOUT"
 )
 
 type Payment struct {
-	PaymentID  string         `json:"payment_id"`
-	Status     PaymentStatus  `json:"status"`
+	PaymentID string        `json:"payment_id"`
+	Status    PaymentStatus `json:"status"`
 }
 
 var (
