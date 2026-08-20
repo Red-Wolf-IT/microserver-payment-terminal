@@ -10,6 +10,7 @@ import (
 var (
 	ErrPaymentInProgress = errors.New("payment already in progress")
 	ErrPaymentNotFound   = errors.New("payment not found")
+	ErrPaymentNotActive  = errors.New("payment is not active")
 )
 
 type PaymentStorage struct {
@@ -70,7 +71,24 @@ func (s *PaymentStorage) UpdateStatus(id string, status model.PaymentStatus) err
 	if s.payment == nil || s.payment.PaymentID != id {
 		return ErrPaymentNotFound
 	}
-
+	if s.payment.Status != model.PaymentStatusWaiting {
+		return ErrPaymentNotActive
+	}
 	s.payment.Status = status
+	return nil
+}
+
+func (s *PaymentStorage) Timeout(id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.payment == nil || s.payment.PaymentID != id {
+		return ErrPaymentNotFound
+	}
+	if s.payment.Status != model.PaymentStatusWaiting {
+		return nil
+	}
+
+	s.payment.Status = model.PaymentStatusTimeout
 	return nil
 }

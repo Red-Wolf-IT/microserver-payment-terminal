@@ -14,15 +14,20 @@ import (
 )
 
 type PaymentService struct {
-	storage *storage.PaymentStorage
+	storage  *storage.PaymentStorage
+	timeout  time.Duration
 
 	entropyMu sync.Mutex
 	entropy   io.Reader
+
+	timerMu sync.Mutex
+	timer   *time.Timer
 }
 
-func NewPaymentService(st *storage.PaymentStorage) *PaymentService {
+func NewPaymentService(st *storage.PaymentStorage, timeout time.Duration) *PaymentService {
 	return &PaymentService{
 		storage: st,
+		timeout: timeout,
 		entropy: ulid.Monotonic(rand.Reader, 0),
 	}
 }
@@ -32,8 +37,38 @@ func (s *PaymentService) CreatePayment() (*model.Payment, error) {
 	if err != nil {
 		return nil, err
 	}
+	payment, err := s.storage.Create(id)
+	if err != nil {
+		return nil, err
+	}
+	s.startTimeout(id)
+	return payment, nil
+}
 
-	return s.storage.Create(id)
+func (s *PaymentService) startTimeout(id string) {
+	s.timerMu.Lock()
+	defer s.timerMu.Unlock()
+	if s.timer != nil {
+		s.timer.Stop()
+	}
+	s.timer = time.AfterFunc(s.timeout, func() {
+		_ = s.storage.Timeout(id)
+	})
+}
+func (s *PaymentService) stopTimeout() {
+	s.timerMu.Lock()
+	defer s.timerMu.Unlock()
+	if s.timer != nil {
+		s.timer.Stop()
+		s.timer = nil
+	}
+}
+func (s *PaymentService) ConfirmPayment(id string) error {
+	if err := s.storage.UpdateStatus(id, model.PaymentStatusSuccess); err != nil {
+		return err
+	}
+	s.stopTimeout()
+	return nil
 }
 
 func (s *PaymentService) GetPayment(id string) (*model.Payment, error) {
